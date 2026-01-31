@@ -142,12 +142,12 @@ fn main() {
     let congestion_control = if args.congestion_control.is_some() {
         args.congestion_control.clone()
     } else {
-        unwrap_or_exit(
-            parse_congestion_control(&sip003_env.plugin_options),
-            "SIP003 env error",
-            2,
-        )
-    };
+        parse_congestion_control(&sip003_env.plugin_options).unwrap_or_else(|err| {
+            tracing::error!("SIP003 env error: {}", err);
+            std::process::exit(2);
+        })
+    }
+    .or_else(|| Some("bbr".to_string()));
 
     let cert = if args.cert.is_some() {
         args.cert.clone()
