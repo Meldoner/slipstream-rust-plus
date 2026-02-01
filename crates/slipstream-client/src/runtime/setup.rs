@@ -3,6 +3,7 @@ use slipstream_core::net::{bind_first_resolved, bind_tcp_listener_addr, bind_udp
 use std::net::{Ipv6Addr, SocketAddr, SocketAddrV6};
 use tokio::net::{TcpListener as TokioTcpListener, UdpSocket as TokioUdpSocket};
 
+#[allow(dead_code)]
 pub(crate) fn compute_mtu(domain_len: usize) -> Result<u32, ClientError> {
     if domain_len >= 240 {
         return Err(ClientError::new(
