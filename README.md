@@ -24,7 +24,7 @@ We took the original Slipstream and gave it **superpowers**:
 xychart-beta
     title "Download Speed Comparison (MB/s)"
     x-axis ["dnstt", "Slipstream (C)", "Rust (Auth)", "Rust Plus"]
-    y-axis "MB/s" 0..520
+    y-axis "MB/s"
     bar [4.01, 9.12, 24.57, 512]
 ```
 
