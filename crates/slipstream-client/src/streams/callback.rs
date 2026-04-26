@@ -76,8 +76,8 @@ pub(crate) unsafe extern "C" fn client_callback(
                     stream.recv_state,
                     stream.send_state
                 );
-            } else {
-                warn!(
+            } else if state.debug_streams {
+                debug!(
                     "stream {}: reset event={} (unknown stream)",
                     stream_id, reason
                 );
@@ -149,12 +149,14 @@ pub(super) fn handle_stream_data(
 
     {
         let Some(stream) = state.streams.get_mut(&stream_id) else {
-            warn!(
-                "stream {}: data for unknown stream len={} fin={}",
-                stream_id,
-                data.len(),
-                fin
-            );
+            if state.debug_streams {
+                debug!(
+                    "stream {}: data for unknown stream len={} fin={}",
+                    stream_id,
+                    data.len(),
+                    fin
+                );
+            }
             unsafe { abort_stream_bidi(cnx, stream_id, SLIPSTREAM_FILE_CANCEL_ERROR) };
             return;
         };

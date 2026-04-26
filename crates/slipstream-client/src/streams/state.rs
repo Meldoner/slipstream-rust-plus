@@ -247,6 +247,7 @@ pub(crate) enum Command {
     NewStream {
         stream: TokioTcpStream,
         reservation: acceptor::AcceptorReservation,
+        generation: usize,
     },
     StreamData {
         stream_id: u64,

@@ -243,6 +243,7 @@ fn mark_active_stream_failure_removes_stream() {
             Command::NewStream {
                 stream,
                 reservation,
+                generation: state.connection_generation,
             },
         );
 

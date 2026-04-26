@@ -77,7 +77,12 @@ pub(crate) fn handle_command(
         Command::NewStream {
             stream,
             mut reservation,
+            generation,
         } => {
+            if !command_generation_matches(state, 0, generation, "NewStream") {
+                drop(stream);
+                return;
+            }
             if !reservation.is_fresh() {
                 drop(stream);
                 return;

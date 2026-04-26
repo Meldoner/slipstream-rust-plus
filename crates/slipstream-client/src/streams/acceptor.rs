@@ -219,8 +219,7 @@ impl AcceptorGate {
                 if command_tx
                     .send(Command::NewStream {
                         stream,
-                        reservation,
-                    })
+                        reservation,                        generation,                    })
                     .is_err()
                 {
                     return false;
