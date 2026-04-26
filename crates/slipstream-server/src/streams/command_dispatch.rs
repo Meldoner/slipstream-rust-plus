@@ -139,56 +139,60 @@ pub(crate) fn handle_command(state_ptr: *mut ServerState, command: Command) {
                 let Some(stream) = state.streams.get_mut(&key) else {
                     return;
                 };
-                stream.target_fin_pending = true;
-                stream.close_after_flush = true;
-                if state.debug_streams {
-                    debug!(
-                        "stream {:?}: closed by target tx_bytes={}",
-                        stream_id, stream.tx_bytes
-                    );
-                }
-                if let Some(pending) = stream.send_pending.as_ref() {
-                    pending.store(true, Ordering::SeqCst);
-                }
-                let cnx = cnx_id as *mut picoquic_cnx_t;
-                let ret = mark_stream_active(cnx_id, stream_id, forced_failure);
-                if ret != 0 {
-                    const MARK_ACTIVE_FAIL_LOG_INTERVAL_US: u64 = 1_000_000;
-                    let now = unsafe { picoquic_current_time() };
-                    if now.saturating_sub(state.last_mark_active_fail_log_at)
-                        >= MARK_ACTIVE_FAIL_LOG_INTERVAL_US
-                    {
-                        let send_pending = stream
-                            .send_pending
-                            .as_ref()
-                            .map(|pending| pending.load(Ordering::SeqCst))
-                            .unwrap_or(false);
-                        let send_stash_bytes = stream
-                            .send_stash
-                            .as_ref()
-                            .map(|stash| stash.len())
-                            .unwrap_or(0);
-                        let backlog = BacklogStreamSummary {
-                            stream_id,
-                            send_pending,
-                            send_stash_bytes,
-                            target_fin_pending: stream.target_fin_pending,
-                            close_after_flush: stream.close_after_flush,
-                            pending_fin: stream.pending_fin,
-                            fin_enqueued: stream.fin_enqueued,
-                            queued_bytes: stream.flow.queued_bytes as u64,
-                            pending_chunks: stream.pending_data.len(),
-                        };
-                        warn!(
-                            "stream {:?}: mark_active_stream fin failed ret={} backlog={:?}",
-                            stream_id, ret, backlog
-                        );
-                        state.last_mark_active_fail_log_at = now;
-                    }
-                    if !forced_failure {
-                        unsafe { abort_stream_bidi(cnx, stream_id, SLIPSTREAM_INTERNAL_ERROR) };
-                    }
+                if stream.fin_enqueued {
                     remove_stream = true;
+                } else {
+                    stream.target_fin_pending = true;
+                    stream.close_after_flush = true;
+                    if state.debug_streams {
+                        debug!(
+                            "stream {:?}: closed by target tx_bytes={}",
+                            stream_id, stream.tx_bytes
+                        );
+                    }
+                    if let Some(pending) = stream.send_pending.as_ref() {
+                        pending.store(true, Ordering::SeqCst);
+                    }
+                    let cnx = cnx_id as *mut picoquic_cnx_t;
+                    let ret = mark_stream_active(cnx_id, stream_id, forced_failure);
+                    if ret != 0 {
+                        const MARK_ACTIVE_FAIL_LOG_INTERVAL_US: u64 = 1_000_000;
+                        let now = unsafe { picoquic_current_time() };
+                        if now.saturating_sub(state.last_mark_active_fail_log_at)
+                            >= MARK_ACTIVE_FAIL_LOG_INTERVAL_US
+                        {
+                            let send_pending = stream
+                                .send_pending
+                                .as_ref()
+                                .map(|pending| pending.load(Ordering::SeqCst))
+                                .unwrap_or(false);
+                            let send_stash_bytes = stream
+                                .send_stash
+                                .as_ref()
+                                .map(|stash| stash.len())
+                                .unwrap_or(0);
+                            let backlog = BacklogStreamSummary {
+                                stream_id,
+                                send_pending,
+                                send_stash_bytes,
+                                target_fin_pending: stream.target_fin_pending,
+                                close_after_flush: stream.close_after_flush,
+                                pending_fin: stream.pending_fin,
+                                fin_enqueued: stream.fin_enqueued,
+                                queued_bytes: stream.flow.queued_bytes as u64,
+                                pending_chunks: stream.pending_data.len(),
+                            };
+                            warn!(
+                                "stream {:?}: mark_active_stream fin failed ret={} backlog={:?}",
+                                stream_id, ret, backlog
+                            );
+                            state.last_mark_active_fail_log_at = now;
+                        }
+                        if !forced_failure {
+                            unsafe { abort_stream_bidi(cnx, stream_id, SLIPSTREAM_INTERNAL_ERROR) };
+                        }
+                        remove_stream = true;
+                    }
                 }
             }
             if remove_stream {

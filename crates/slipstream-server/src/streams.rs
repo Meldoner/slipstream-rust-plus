@@ -193,8 +193,8 @@ pub(crate) unsafe extern "C" fn server_callback(
                     stream.target_fin_pending,
                     stream.close_after_flush
                 );
-            } else {
-                warn!(
+            } else if state.debug_streams {
+                debug!(
                     "stream {:?}: reset event={} (unknown stream)",
                     stream_id, reason
                 );
@@ -222,52 +222,29 @@ pub(crate) unsafe extern "C" fn server_callback(
                     .as_ref()
                     .map(|flag| flag.load(Ordering::SeqCst))
                     .unwrap_or(false);
-                let has_stash = stream
+                let mut has_stash = stream
                     .send_stash
                     .as_ref()
                     .is_some_and(|data| !data.is_empty());
-                let has_pending = pending_flag || has_stash;
 
                 if length == 0 {
                     if pending_flag && !has_stash && !stream.target_fin_pending {
-                        let rx_empty = stream
-                            .data_rx
-                            .as_ref()
-                            .map(|rx| rx.is_empty())
-                            .unwrap_or(true);
-                        if rx_empty {
-                            let send_stash_bytes = stream
-                                .send_stash
-                                .as_ref()
-                                .map(|data| data.len())
-                                .unwrap_or(0);
-                            let queued_bytes = stream.flow.queued_bytes;
-                            let pending_chunks = stream.pending_data.len();
-                            let tx_bytes = stream.tx_bytes;
-                            let target_fin_pending = stream.target_fin_pending;
-                            let close_after_flush = stream.close_after_flush;
-                            let now = unsafe { picoquic_current_time() };
-                            INVARIANT_REPORTER.report(
-                                now,
-                                || {
-                                    format!(
-                                        "cnx {} stream {:?}: zero-length send callback saw pending flag with empty queue send_pending={} send_stash_bytes={} target_fin_pending={} close_after_flush={} queued={} pending_chunks={} tx_bytes={}",
-                                        key.cnx,
-                                        key.stream_id,
-                                        pending_flag,
-                                        send_stash_bytes,
-                                        target_fin_pending,
-                                        close_after_flush,
-                                        queued_bytes,
-                                        pending_chunks,
-                                        tx_bytes
-                                    )
-                                },
-                                |msg| warn!("{}", msg),
-                            );
+                        if let Some(rx) = stream.data_rx.as_mut() {
+                            match rx.try_recv() {
+                                Ok(data) => {
+                                    stream.send_stash = Some(data);
+                                    has_stash = true;
+                                }
+                                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {}
+                                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                                    stream.data_rx = None;
+                                    stream.target_fin_pending = true;
+                                    stream.close_after_flush = true;
+                                }
+                            }
                         }
                     }
-                    let still_active = if has_pending || stream.target_fin_pending {
+                    let still_active = if has_stash || stream.target_fin_pending {
                         1
                     } else {
                         0
