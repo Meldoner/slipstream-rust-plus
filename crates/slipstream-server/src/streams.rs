@@ -13,7 +13,7 @@ use slipstream_core::invariants::InvariantReporter;
 use slipstream_core::test_support::FailureCounter;
 use slipstream_ffi::picoquic::{
     picoquic_call_back_event_t, picoquic_close, picoquic_close_immediate, picoquic_cnx_t,
-    picoquic_current_time, picoquic_get_first_cnx, picoquic_get_next_cnx,
+    picoquic_get_first_cnx, picoquic_get_next_cnx,
     picoquic_provide_stream_data_buffer, picoquic_quic_t, picoquic_reset_stream,
     picoquic_stop_sending, picoquic_stream_data_consumed,
 };

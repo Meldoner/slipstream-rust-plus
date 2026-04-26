@@ -178,6 +178,10 @@ impl AcceptorReservation {
         self.limiter.generation() == self.generation
     }
 
+    pub(crate) fn generation(&self) -> usize {
+        self.generation
+    }
+
     pub(crate) fn commit(&mut self) -> bool {
         if !self.is_fresh() {
             return false;
@@ -215,11 +219,14 @@ impl AcceptorGate {
                 if !reservation.is_fresh() {
                     drop(stream);
                     return true;
-                };
+                }
+                let generation = reservation.generation();
                 if command_tx
                     .send(Command::NewStream {
                         stream,
-                        reservation,                        generation,                    })
+                        reservation,
+                        generation,
+                    })
                     .is_err()
                 {
                     return false;
